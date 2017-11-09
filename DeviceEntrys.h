@@ -15,6 +15,7 @@ public:
 	DeviceRemove();
 	virtual ~DeviceRemove();
 
+	BOOL Remove(TCHAR* Name,DWORD HardwareId);
 };
 
 #endif // !defined(AFX_DEVICEENTRYS_H__D57995E3_8BCC_48C7_9F69_990AF64359C9__INCLUDED_)
