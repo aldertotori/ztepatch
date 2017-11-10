@@ -2,13 +2,13 @@
 //
 
 #include "stdafx.h"
+#include "DeviceEntrys.h"
 
 int main(int argc, char* argv[])
 {
-	printf("Hello World!\n");
+	DeviceRemove remove;
 
-
-
+	remove.Remove(_T("test"),0);
 	
 	return 0;
 }
