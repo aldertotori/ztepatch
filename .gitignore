@@ -46,5 +46,10 @@ Network Trash Folder
 Temporary Items
 .apdisk
 *.ncb
-ztepatch.opt
+*.plg
+*.obj
+*.ilk
+*.idb
+*.pdb
+*.pch
 *.opt
