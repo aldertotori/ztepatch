@@ -95,12 +95,24 @@ SOURCE=.\DeviceEntrys.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\ServiceBase.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ServiceInstaller.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\StdAfx.cpp
 # ADD CPP /Yc"stdafx.h"
 # End Source File
 # Begin Source File
 
 SOURCE=.\ztepatch.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\ZTEPatchService.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -116,7 +128,23 @@ SOURCE=.\DeviceEntrys.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ServiceBase.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ServiceInstaller.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\StdAfx.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ThreadPool.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ZTEPatchService.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
