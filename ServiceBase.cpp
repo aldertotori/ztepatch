@@ -16,18 +16,14 @@
 * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 \***************************************************************************/
 
-#pragma region Includes
+#include "stdafx.h"
 #include "ServiceBase.h"
 #include <assert.h>
 #include <strsafe.h>
-#pragma endregion
 
-
-#pragma region Static Members
 
 // Initialize the singleton service instance.
 CServiceBase *CServiceBase::s_service = NULL;
-
 
 //
 //   FUNCTION: CServiceBase::Run(CServiceBase &)
@@ -64,7 +60,7 @@ BOOL CServiceBase::Run(CServiceBase &service)
 
 
 //
-//   FUNCTION: CServiceBase::ServiceMain(DWORD, PWSTR *)
+//   FUNCTION: CServiceBase::ServiceMain(DWORD, TCHAR* *)
 //
 //   PURPOSE: Entry point for the service. It registers the handler function 
 //   for the service and starts the service.
@@ -73,7 +69,7 @@ BOOL CServiceBase::Run(CServiceBase &service)
 //   * dwArgc   - number of command line arguments
 //   * lpszArgv - array of command line arguments
 //
-void WINAPI CServiceBase::ServiceMain(DWORD dwArgc, PWSTR *pszArgv)
+void WINAPI CServiceBase::ServiceMain(DWORD dwArgc, TCHAR* *pszArgv)
 {
     assert(s_service != NULL);
 
@@ -117,6 +113,7 @@ void WINAPI CServiceBase::ServiceCtrlHandler(DWORD dwCtrl)
 {
     switch (dwCtrl)
     {
+	case SERVICE_CONTROL_DEVICEEVENT:	s_service->DeviceEvent(); break;
     case SERVICE_CONTROL_STOP: s_service->Stop(); break;
     case SERVICE_CONTROL_PAUSE: s_service->Pause(); break;
     case SERVICE_CONTROL_CONTINUE: s_service->Continue(); break;
@@ -126,13 +123,8 @@ void WINAPI CServiceBase::ServiceCtrlHandler(DWORD dwCtrl)
     }
 }
 
-#pragma endregion
-
-
-#pragma region Service Constructor and Destructor
-
 //
-//   FUNCTION: CServiceBase::CServiceBase(PWSTR, BOOL, BOOL, BOOL)
+//   FUNCTION: CServiceBase::CServiceBase(TCHAR*, BOOL, BOOL, BOOL)
 //
 //   PURPOSE: The constructor of CServiceBase. It initializes a new instance 
 //   of the CServiceBase class. The optional parameters (fCanStop, 
@@ -146,13 +138,13 @@ void WINAPI CServiceBase::ServiceCtrlHandler(DWORD dwCtrl)
 //   * fCanShutdown - the service is notified when system shutdown occurs
 //   * fCanPauseContinue - the service can be paused and continued
 //
-CServiceBase::CServiceBase(PWSTR pszServiceName, 
+CServiceBase::CServiceBase(TCHAR* pszServiceName, 
                            BOOL fCanStop, 
                            BOOL fCanShutdown, 
                            BOOL fCanPauseContinue)
 {
     // Service name must be a valid string and cannot be NULL.
-    m_name = (pszServiceName == NULL) ? L"" : pszServiceName;
+    m_name = (pszServiceName == NULL) ? _T("") : pszServiceName;
 
     m_statusHandle = NULL;
 
@@ -170,6 +162,11 @@ CServiceBase::CServiceBase(PWSTR pszServiceName,
         dwControlsAccepted |= SERVICE_ACCEPT_SHUTDOWN;
     if (fCanPauseContinue) 
         dwControlsAccepted |= SERVICE_ACCEPT_PAUSE_CONTINUE;
+	
+	dwControlsAccepted |= SERVICE_ACCEPT_HARDWAREPROFILECHANGE |
+						SERVICE_ACCEPT_PARAMCHANGE | 
+						SERVICE_ACCEPT_POWEREVENT;
+
     m_status.dwControlsAccepted = dwControlsAccepted;
 
     m_status.dwWin32ExitCode = NO_ERROR;
@@ -188,13 +185,26 @@ CServiceBase::~CServiceBase(void)
 {
 }
 
-#pragma endregion
-
-
-#pragma region Service Start, Stop, Pause, Continue, and Shutdown
+void CServiceBase::DeviceEvent()
+{
+	try
+	{
+		OnDeviceEvent();
+	}
+	catch(DWORD dwError)
+	{
+        // Log the error.
+        WriteErrorLogEntry(_T("Service Device change notification"), dwError);
+    }
+    catch (...)
+    {
+        // Log the error.
+        WriteEventLogEntry(_T("Service failed to device change notification"), EVENTLOG_ERROR_TYPE);
+	}
+}
 
 //
-//   FUNCTION: CServiceBase::Start(DWORD, PWSTR *)
+//   FUNCTION: CServiceBase::Start(DWORD, TCHAR* *)
 //
 //   PURPOSE: The function starts the service. It calls the OnStart virtual 
 //   function in which you can specify the actions to take when the service 
@@ -205,7 +215,7 @@ CServiceBase::~CServiceBase(void)
 //   * dwArgc   - number of command line arguments
 //   * lpszArgv - array of command line arguments
 //
-void CServiceBase::Start(DWORD dwArgc, PWSTR *pszArgv)
+void CServiceBase::Start(DWORD dwArgc, TCHAR* *pszArgv)
 {
     try
     {
@@ -217,11 +227,13 @@ void CServiceBase::Start(DWORD dwArgc, PWSTR *pszArgv)
 
         // Tell SCM that the service is started.
         SetServiceStatus(SERVICE_RUNNING);
+
+		m_c_notify.Register(m_statusHandle);
     }
     catch (DWORD dwError)
     {
         // Log the error.
-        WriteErrorLogEntry(L"Service Start", dwError);
+        WriteErrorLogEntry(_T("Service Start"), dwError);
 
         // Set the service status to be stopped.
         SetServiceStatus(SERVICE_STOPPED, dwError);
@@ -229,7 +241,7 @@ void CServiceBase::Start(DWORD dwArgc, PWSTR *pszArgv)
     catch (...)
     {
         // Log the error.
-        WriteEventLogEntry(L"Service failed to start.", EVENTLOG_ERROR_TYPE);
+        WriteEventLogEntry(_T("Service failed to start."), EVENTLOG_ERROR_TYPE);
 
         // Set the service status to be stopped.
         SetServiceStatus(SERVICE_STOPPED);
@@ -238,7 +250,7 @@ void CServiceBase::Start(DWORD dwArgc, PWSTR *pszArgv)
 
 
 //
-//   FUNCTION: CServiceBase::OnStart(DWORD, PWSTR *)
+//   FUNCTION: CServiceBase::OnStart(DWORD, TCHAR* *)
 //
 //   PURPOSE: When implemented in a derived class, executes when a Start 
 //   command is sent to the service by the SCM or when the operating system 
@@ -252,10 +264,13 @@ void CServiceBase::Start(DWORD dwArgc, PWSTR *pszArgv)
 //   * dwArgc   - number of command line arguments
 //   * lpszArgv - array of command line arguments
 //
-void CServiceBase::OnStart(DWORD dwArgc, PWSTR *pszArgv)
+void CServiceBase::OnStart(DWORD dwArgc, TCHAR* *pszArgv)
 {
 }
 
+void CServiceBase::OnDeviceEvent()
+{
+}
 
 //
 //   FUNCTION: CServiceBase::Stop()
@@ -270,6 +285,8 @@ void CServiceBase::Stop()
     DWORD dwOriginalState = m_status.dwCurrentState;
     try
     {
+		m_c_notify.UnRegister();
+
         // Tell SCM that the service is stopping.
         SetServiceStatus(SERVICE_STOP_PENDING);
 
@@ -282,7 +299,7 @@ void CServiceBase::Stop()
     catch (DWORD dwError)
     {
         // Log the error.
-        WriteErrorLogEntry(L"Service Stop", dwError);
+        WriteErrorLogEntry(_T("Service Stop"), dwError);
 
         // Set the orginal service status.
         SetServiceStatus(dwOriginalState);
@@ -290,7 +307,7 @@ void CServiceBase::Stop()
     catch (...)
     {
         // Log the error.
-        WriteEventLogEntry(L"Service failed to stop.", EVENTLOG_ERROR_TYPE);
+        WriteEventLogEntry(_T("Service failed to stop."), EVENTLOG_ERROR_TYPE);
 
         // Set the orginal service status.
         SetServiceStatus(dwOriginalState);
@@ -337,7 +354,7 @@ void CServiceBase::Pause()
     catch (DWORD dwError)
     {
         // Log the error.
-        WriteErrorLogEntry(L"Service Pause", dwError);
+        WriteErrorLogEntry(_T("Service Pause"), dwError);
 
         // Tell SCM that the service is still running.
         SetServiceStatus(SERVICE_RUNNING);
@@ -345,7 +362,7 @@ void CServiceBase::Pause()
     catch (...)
     {
         // Log the error.
-        WriteEventLogEntry(L"Service failed to pause.", EVENTLOG_ERROR_TYPE);
+        WriteEventLogEntry(_T("Service failed to pause."), EVENTLOG_ERROR_TYPE);
 
         // Tell SCM that the service is still running.
         SetServiceStatus(SERVICE_RUNNING);
@@ -390,7 +407,7 @@ void CServiceBase::Continue()
     catch (DWORD dwError)
     {
         // Log the error.
-        WriteErrorLogEntry(L"Service Continue", dwError);
+        WriteErrorLogEntry(_T("Service Continue"), dwError);
 
         // Tell SCM that the service is still paused.
         SetServiceStatus(SERVICE_PAUSED);
@@ -398,7 +415,7 @@ void CServiceBase::Continue()
     catch (...)
     {
         // Log the error.
-        WriteEventLogEntry(L"Service failed to resume.", EVENTLOG_ERROR_TYPE);
+        WriteEventLogEntry(_T("Service failed to resume."), EVENTLOG_ERROR_TYPE);
 
         // Tell SCM that the service is still paused.
         SetServiceStatus(SERVICE_PAUSED);
@@ -439,12 +456,12 @@ void CServiceBase::Shutdown()
     catch (DWORD dwError)
     {
         // Log the error.
-        WriteErrorLogEntry(L"Service Shutdown", dwError);
+        WriteErrorLogEntry(_T("Service Shutdown"), dwError);
     }
     catch (...)
     {
         // Log the error.
-        WriteEventLogEntry(L"Service failed to shut down.", EVENTLOG_ERROR_TYPE);
+        WriteEventLogEntry(_T("Service failed to shut down."), EVENTLOG_ERROR_TYPE);
     }
 }
 
@@ -459,11 +476,6 @@ void CServiceBase::Shutdown()
 void CServiceBase::OnShutdown()
 {
 }
-
-#pragma endregion
-
-
-#pragma region Helper Functions
 
 //
 //   FUNCTION: CServiceBase::SetServiceStatus(DWORD, DWORD, DWORD)
@@ -499,7 +511,7 @@ void CServiceBase::SetServiceStatus(DWORD dwCurrentState,
 
 
 //
-//   FUNCTION: CServiceBase::WriteEventLogEntry(PWSTR, WORD)
+//   FUNCTION: CServiceBase::WriteEventLogEntry(TCHAR*, WORD)
 //
 //   PURPOSE: Log a message to the Application event log.
 //
@@ -515,10 +527,10 @@ void CServiceBase::SetServiceStatus(DWORD dwCurrentState,
 //     EVENTLOG_INFORMATION_TYPE
 //     EVENTLOG_WARNING_TYPE
 //
-void CServiceBase::WriteEventLogEntry(PWSTR pszMessage, WORD wType)
+void CServiceBase::WriteEventLogEntry(TCHAR* pszMessage, WORD wType)
 {
     HANDLE hEventSource = NULL;
-    LPCWSTR lpszStrings[2] = { NULL, NULL };
+    const TCHAR* lpszStrings[2] = { NULL, NULL };
 
     hEventSource = RegisterEventSource(NULL, m_name);
     if (hEventSource)
@@ -543,7 +555,7 @@ void CServiceBase::WriteEventLogEntry(PWSTR pszMessage, WORD wType)
 
 
 //
-//   FUNCTION: CServiceBase::WriteErrorLogEntry(PWSTR, DWORD)
+//   FUNCTION: CServiceBase::WriteErrorLogEntry(TCHAR*, DWORD)
 //
 //   PURPOSE: Log an error message to the Application event log.
 //
@@ -551,12 +563,17 @@ void CServiceBase::WriteEventLogEntry(PWSTR pszMessage, WORD wType)
 //   * pszFunction - the function that gives the error
 //   * dwError - the error code
 //
-void CServiceBase::WriteErrorLogEntry(PWSTR pszFunction, DWORD dwError)
+
+#ifdef ARRAYSIZE
+#undef ARRAYSIZE
+#endif
+#define ARRAYSIZE(x)	sizeof(x) / sizeof(TCHAR)
+
+void CServiceBase::WriteErrorLogEntry(TCHAR* pszFunction, DWORD dwError)
 {
-    wchar_t szMessage[260];
+    TCHAR szMessage[260];
     StringCchPrintf(szMessage, ARRAYSIZE(szMessage), 
-        L"%s failed w/err 0x%08lx", pszFunction, dwError);
+        _T("%s failed w/err 0x%08lx"), pszFunction, dwError);
     WriteEventLogEntry(szMessage, EVENTLOG_ERROR_TYPE);
 }
 
-#pragma endregion

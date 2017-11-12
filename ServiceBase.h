@@ -19,7 +19,7 @@
 #pragma once
 
 #include <windows.h>
-
+#include "DeviceChangeNotify.h"
 
 class CServiceBase
 {
@@ -35,7 +35,7 @@ public:
     // fCanShutdown and fCanPauseContinue) allow you to specify whether the 
     // service can be stopped, paused and continued, or be notified when 
     // system shutdown occurs.
-    CServiceBase(PWSTR pszServiceName, 
+    CServiceBase(TCHAR* pszServiceName, 
         BOOL fCanStop = TRUE, 
         BOOL fCanShutdown = TRUE, 
         BOOL fCanPauseContinue = FALSE);
@@ -52,7 +52,7 @@ protected:
     // sent to the service by the SCM or when the operating system starts 
     // (for a service that starts automatically). Specifies actions to take 
     // when the service starts.
-    virtual void OnStart(DWORD dwArgc, PWSTR *pszArgv);
+    virtual void OnStart(DWORD dwArgc, TCHAR* *pszArgv);
 
     // When implemented in a derived class, executes when a Stop command is 
     // sent to the service by the SCM. Specifies actions to take when a 
@@ -74,30 +74,32 @@ protected:
     // system shutting down.
     virtual void OnShutdown();
 
+	virtual void OnDeviceEvent();
+
     // Set the service status and report the status to the SCM.
     void SetServiceStatus(DWORD dwCurrentState, 
         DWORD dwWin32ExitCode = NO_ERROR, 
         DWORD dwWaitHint = 0);
 
     // Log a message to the Application event log.
-    void WriteEventLogEntry(PWSTR pszMessage, WORD wType);
+    void WriteEventLogEntry(TCHAR* pszMessage, WORD wType);
 
     // Log an error message to the Application event log.
-    void WriteErrorLogEntry(PWSTR pszFunction, 
+    void WriteErrorLogEntry(TCHAR* pszFunction, 
         DWORD dwError = GetLastError());
 
 private:
 
     // Entry point for the service. It registers the handler function for the 
     // service and starts the service.
-    static void WINAPI ServiceMain(DWORD dwArgc, LPWSTR *lpszArgv);
+    static void WINAPI ServiceMain(DWORD dwArgc, TCHAR* *lpszArgv);
 
     // The function is called by the SCM whenever a control code is sent to 
     // the service.
     static void WINAPI ServiceCtrlHandler(DWORD dwCtrl);
 
     // Start the service.
-    void Start(DWORD dwArgc, PWSTR *pszArgv);
+    void Start(DWORD dwArgc, TCHAR* *pszArgv);
     
     // Pause the service.
     void Pause();
@@ -108,15 +110,21 @@ private:
     // Execute when the system is shutting down.
     void Shutdown();
 
+	// System Device change notification
+	void DeviceEvent();
+
     // The singleton service instance.
     static CServiceBase *s_service;
 
     // The name of the service
-    PWSTR m_name;
+    TCHAR* m_name;
 
     // The status of the service
     SERVICE_STATUS m_status;
 
     // The service status handle
     SERVICE_STATUS_HANDLE m_statusHandle;
+
+	// Device change notification
+	DeviceChangeNotify	m_c_notify;
 };

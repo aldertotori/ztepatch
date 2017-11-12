@@ -10,12 +10,22 @@
 #endif // _MSC_VER > 1000
 
 #include "ServiceBase.h"
+#include "DeviceChangeNotify.h"
 
 class CZTEPatchService  : public CServiceBase
 {
 public:
-	CZTEPatchService();
+	CZTEPatchService(TCHAR* name);
 	virtual ~CZTEPatchService();
+
+	void OnStart(DWORD dwArgc, TCHAR* *pszArgv);
+	void OnStop();
+	void OnPause();
+	void OnContinue();
+	void OnDeviceEvent();
+
+private:
+
 
 };
 

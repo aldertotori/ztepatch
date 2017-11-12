@@ -19,7 +19,7 @@
 #include <windows.h>
 #include "ServiceInstaller.h"
 
-#ifndef ARRAYSIZE(x)
+#ifndef ARRAYSIZE
 #define ARRAYSIZE(x) sizeof(x) / sizeof(TCHAR)
 #endif
 
