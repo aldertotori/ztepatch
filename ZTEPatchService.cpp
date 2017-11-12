@@ -32,7 +32,7 @@ void CZTEPatchService::OnDeviceEvent()
 {
 
 	DeviceRemove remove;
-	remove.Remove(_T("USB\\VEN_&PID_"),0);
+	remove.Remove(_T("USBSTOR\CdRomZTE_CorpCD-ROM__________0.01"),0);
 }
 
 void CZTEPatchService::OnPause()
